@@ -1,4 +1,4 @@
--- Main Scripts | ESP + Aimbot v30 — Fixed toggles + Platform hotbar
+-- Main Scripts | ESP + Aimbot v32 — Fixed toggles + Devices
 -- Executor required. Client-side only.
 
 local Players = game:GetService("Players")
@@ -25,15 +25,33 @@ local GLASS = {
     textDim = Color3.fromRGB(200, 205, 220),
 }
 
+-- ========== ОПРЕДЕЛЕНИЕ УСТРОЙСТВА ==========
+local deviceName = "PC"
+local maxHotbarSlots = 10
+
+if UserInputService.VREnabled then
+    deviceName = "VR"
+elseif game:GetService("GuiService"):IsTenFootInterface() then
+    deviceName = "Console"
+elseif UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled and not UserInputService.MouseEnabled then
+    local screenSize = workspace.CurrentCamera.ViewportSize
+    if math.max(screenSize.X, screenSize.Y) >= 1024 then
+        deviceName = "Tablet"
+        maxHotbarSlots = 6
+    else
+        deviceName = "Phone"
+        maxHotbarSlots = 3
+    end
+end
+
+-- ========== CONFIG ==========
 local config = {
     highlight = false, hitbox = false, hp = false, toolname = false,
     distance = false, name = false, inventory = false, teamColor = false,
+    device = false,
     aimbot = false, wallcheck = false, teamcheck = false, fovCircle = false,
     rainbowFov = false, targetHead = true, fov = 90,
 }
-
-local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
-local maxHotbarSlots = isMobile and 3 or 10
 
 local aimKey = nil
 local aimMouse = nil
@@ -58,8 +76,8 @@ screen.Parent = parent
 local main = Instance.new("Frame")
 main.Name = "Main"
 main.AnchorPoint = Vector2.new(0, 0)
-main.Size = UDim2.new(0, 280, 0, 460)
-main.Position = UDim2.new(0.5, -140, 0.75, -230)
+main.Size = UDim2.new(0, 280, 0, 500)
+main.Position = UDim2.new(0.5, -140, 0.75, -250)
 main.BackgroundColor3 = GLASS.bg
 main.BackgroundTransparency = GLASS.bgTransparency
 main.BorderSizePixel = 0
@@ -312,7 +330,8 @@ local function setToggleVisual(key, state, animate)
     local t = toggleButtons[key]
     if not t then return end
     local targetBg = state and GLASS.accent or GLASS.accentOff
-    local targetPos = state and UDim2.new(1, -20, 0.5, -11) or UDim2.new(0, 2, 0.5, -11)
+    -- ИСПРАВЛЕНО: -9 вместо -11, чтобы кружочек не улетал вверх
+    local targetPos = state and UDim2.new(1, -20, 0.5, -9) or UDim2.new(0, 2, 0.5, -9)
     if animate then
         TweenService:Create(t.btn, TweenInfo.new(0.15), {BackgroundColor3 = targetBg}):Play()
         TweenService:Create(t.knob, TweenInfo.new(0.15), {Position = targetPos}):Play()
@@ -357,6 +376,7 @@ local function makeToggle(parent, labelText, key, order)
     
     local knob = Instance.new("Frame")
     knob.Size = UDim2.new(0, 18, 0, 18)
+    -- ИСПРАВЛЕНО: -9 для центрирования
     knob.Position = UDim2.new(0, 2, 0.5, -9)
     knob.BackgroundColor3 = Color3.fromRGB(240, 240, 250)
     knob.BorderSizePixel = 0
@@ -484,6 +504,7 @@ end
 local espBody = makeFold(scroll, "ESP", 1, false)
 local aimBody = makeFold(scroll, "Aimbot", 3, false)
 
+-- ========== ESP MAIN ROW ==========
 local mainEspRow = Instance.new("TextButton")
 mainEspRow.Size = UDim2.new(1, 0, 0, 34)
 mainEspRow.BackgroundColor3 = Color3.fromRGB(60, 30, 36)
@@ -514,14 +535,16 @@ mainEspIndicator.ZIndex = 2
 mainEspIndicator.Parent = mainEspRow
 Instance.new("UICorner", mainEspIndicator).CornerRadius = UDim.new(1, 0)
 
+-- ========== НОВЫЙ ПОРЯДОК ТУМБЛЕРОВ ==========
 makeToggle(espBody, "Highlight (red)", "highlight", 2)
 makeToggle(espBody, "Hitbox (white)", "hitbox", 3)
-makeToggle(espBody, "Health", "hp", 4)
-makeToggle(espBody, "Tool Name", "toolname", 5)
+makeToggle(espBody, "Name", "name", 4)
+makeToggle(espBody, "Health", "hp", 5)
 makeToggle(espBody, "Distance", "distance", 6)
-makeToggle(espBody, "Name", "name", 7)
+makeToggle(espBody, "Tool Name", "toolname", 7)
 makeToggle(espBody, "Team Color", "teamColor", 8)
 makeToggle(espBody, "Inventory", "inventory", 9)
+makeToggle(espBody, "Device", "device", 10)
 
 local mainEspActive = false
 
@@ -536,8 +559,9 @@ end
 
 local function isFullMainEspState()
     return config.highlight == true and config.hitbox == false
-        and config.hp == true and config.toolname == true
-        and config.distance == true and config.name == true
+        and config.name == true and config.hp == true and config.distance == true
+        and config.toolname == false and config.teamColor == false
+        and config.inventory == false and config.device == false
 end
 
 onToggleChanged = function()
@@ -557,24 +581,33 @@ local function applyMainEsp(state)
     if state then
         config.highlight = true
         config.hitbox = false
-        config.hp = true
-        config.toolname = true
-        config.distance = true
         config.name = true
+        config.hp = true
+        config.distance = true
+        config.toolname = false
+        config.teamColor = false
+        config.inventory = false
+        config.device = false
     else
         config.highlight = false
         config.hitbox = false
-        config.hp = false
-        config.toolname = false
-        config.distance = false
         config.name = false
+        config.hp = false
+        config.distance = false
+        config.toolname = false
+        config.teamColor = false
+        config.inventory = false
+        config.device = false
     end
     setToggleVisual("highlight", config.highlight, true)
     setToggleVisual("hitbox", config.hitbox, true)
-    setToggleVisual("hp", config.hp, true)
-    setToggleVisual("toolname", config.toolname, true)
-    setToggleVisual("distance", config.distance, true)
     setToggleVisual("name", config.name, true)
+    setToggleVisual("hp", config.hp, true)
+    setToggleVisual("distance", config.distance, true)
+    setToggleVisual("toolname", config.toolname, true)
+    setToggleVisual("teamColor", config.teamColor, true)
+    setToggleVisual("inventory", config.inventory, true)
+    setToggleVisual("device", config.device, true)
     suppressToggleChange = false
 end
 
@@ -584,6 +617,7 @@ mainEspRow.MouseButton1Click:Connect(function()
     applyMainEsp(mainEspActive)
 end)
 
+-- ========== AIMBOT ==========
 makeToggle(aimBody, "Aimbot", "aimbot", 1)
 makeToggle(aimBody, "Wallcheck", "wallcheck", 2)
 makeToggle(aimBody, "Teamcheck", "teamcheck", 3)
@@ -878,12 +912,14 @@ RunService.RenderStepped:Connect(function(dt)
     end
 end)
 
+-- ========== ESP ENGINE ==========
 local espData = {}
 local COL_NAME = "rgb(255, 255, 255)"
 local COL_HP   = "rgb(120, 255, 120)"
 local COL_TOOL = "rgb(255, 220, 120)"
 local COL_DIST = "rgb(180, 180, 255)"
 local COL_SEP  = "rgb(120, 120, 120)"
+local COL_DEV  = "rgb(200, 150, 255)"
 
 local BODY_PARTS = {
     "Head", "UpperTorso", "LowerTorso",
@@ -1033,6 +1069,7 @@ table.insert(conns, Players.PlayerAdded:Connect(setupPlayer))
 table.insert(conns, Players.PlayerRemoving:Connect(function(p) clearESP(p) end))
 for _, p in ipairs(Players:GetPlayers()) do setupPlayer(p) end
 
+-- ========== AIMBOT LOGIC ==========
 UserInputService.InputBegan:Connect(function(input, gpe)
     if gpe then return end
     if not config.aimbot then return end
@@ -1152,12 +1189,13 @@ UserInputService.InputEnded:Connect(function(input)
     end
 end)
 
-local FULL_W, FULL_H = 280, 460
+-- ========== VISIBILITY ==========
+local FULL_W, FULL_H = 280, 500
 local animState = nil
 local animT = 0
 local animFromW, animFromH = 0, 0
 local animCenterX, animCenterY = 0, 0
-local lastSizeW, lastSizeH = 280, 460
+local lastSizeW, lastSizeH = 280, 500
 
 local function startHideAnim()
     if animState then return end
@@ -1283,6 +1321,7 @@ UserInputService.InputBegan:Connect(function(input, gpe)
     if input.KeyCode == Enum.KeyCode.G then toggleVisibility() end
 end)
 
+-- ========== MAIN LOOP ==========
 RunService.RenderStepped:Connect(function()
     if closed then return end
     local myChar = LocalPlayer.Character
@@ -1297,12 +1336,14 @@ RunService.RenderStepped:Connect(function()
                 local head = char and char:FindFirstChild("Head")
                 local humanoid = char and char:FindFirstChildOfClass("Humanoid")
                 local root = char and char:FindFirstChild("HumanoidRootPart")
+                
                 if config.highlight and char then
                     local h = ensureHighlight(player)
                     if h then h.Adornee = char end
                 else
                     if d.highlight then d.highlight:Destroy() d.highlight = nil end
                 end
+                
                 if config.hitbox and char then
                     ensureHitbox(player)
                     if d.hitboxParts then
@@ -1313,7 +1354,8 @@ RunService.RenderStepped:Connect(function()
                 else
                     clearHitbox(player)
                 end
-                local needText = config.hp or config.toolname or config.distance or config.name
+                
+                local needText = config.hp or config.toolname or config.distance or config.name or config.device
                 if needText and head then
                     local lbl = ensureTextLabel(player)
                     local headPos = head.Position + Vector3.new(0, 2, 0)
@@ -1348,6 +1390,10 @@ RunService.RenderStepped:Connect(function()
                                 local dist = (myPos - root.Position).Magnitude
                                 table.insert(parts, string.format('<font color="%s">%d studs</font>', COL_DIST, math.floor(dist)))
                             end
+                            if config.device then
+                                table.insert(parts, string.format('<font color="%s">%s</font>', COL_DEV, deviceName))
+                            end
+                            
                             if #parts > 0 then
                                 local sep = string.format(' <font color="%s">|</font> ', COL_SEP)
                                 lbl.Text = table.concat(parts, sep)
@@ -1363,6 +1409,7 @@ RunService.RenderStepped:Connect(function()
                 else
                     if d.textLabel then d.textLabel.Visible = false end
                 end
+                
                 if config.inventory and char and head then
                     if not d.invLabel then
                         d.invLabel = Instance.new("TextLabel")
