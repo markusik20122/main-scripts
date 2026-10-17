@@ -1,4 +1,4 @@
--- Main Scripts | ESP + Aimbot v26 — Glass Edition
+-- Main Scripts | ESP + Aimbot v28 — Inventory
 -- Executor required. Client-side only.
 
 local Players = game:GetService("Players")
@@ -27,8 +27,9 @@ local GLASS = {
 
 local config = {
     highlight = false, hitbox = false, hp = false, toolname = false,
-    distance = false, name = false, aimbot = false, wallcheck = false,
-    teamcheck = false, fovCircle = false, rainbowFov = false, teamColor = false,
+    distance = false, name = false, inventory = false,
+    aimbot = false, wallcheck = false, teamcheck = false, fovCircle = false,
+    rainbowFov = false, teamColor = false,
     targetHead = true, fov = 90,
 }
 
@@ -513,6 +514,7 @@ makeToggle(espBody, "Tool Name", "toolname", 5)
 makeToggle(espBody, "Distance", "distance", 6)
 makeToggle(espBody, "Name", "name", 7)
 makeToggle(espBody, "Team Color", "teamColor", 8)
+makeToggle(espBody, "Inventory", "inventory", 9)
 
 local mainEspActive = false
 
@@ -895,13 +897,12 @@ local function clearESP(player)
         end
     end
     if d.textLabel then d.textLabel:Destroy() end
+    if d.invLabel then d.invLabel:Destroy() end
     espData[player] = nil
 end
 
 local function clearAllESP()
-    for player, _ in pairs(espData) do
-        clearESP(player)
-    end
+    for player, _ in pairs(espData) do clearESP(player) end
     espData = {}
 end
 
@@ -1014,6 +1015,7 @@ local function setupPlayer(player)
         if not d then return end
         if d.highlight then d.highlight:Destroy() d.highlight = nil end
         clearHitbox(player)
+        if d.invLabel then d.invLabel.Visible = false end
     end
     player.CharacterAdded:Connect(onChar)
     if player.Character then onChar(player.Character) end
@@ -1353,6 +1355,53 @@ RunService.RenderStepped:Connect(function()
                     end
                 else
                     if d.textLabel then d.textLabel.Visible = false end
+                end
+
+                if config.inventory and char and head then
+                    if not d.invLabel then
+                        d.invLabel = Instance.new("TextLabel")
+                        d.invLabel.Name = "MS_InvText_" .. player.Name
+                        d.invLabel.BackgroundTransparency = 1
+                        d.invLabel.AnchorPoint = Vector2.new(0.5, 1)
+                        d.invLabel.Size = UDim2.new(0, 400, 0, 16)
+                        d.invLabel.Font = Enum.Font.GothamMedium
+                        d.invLabel.TextSize = 11
+                        d.invLabel.TextColor3 = Color3.fromRGB(255, 240, 150)
+                        d.invLabel.RichText = true
+                        d.invLabel.TextStrokeTransparency = 0.5
+                        d.invLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+                        d.invLabel.TextXAlignment = Enum.TextXAlignment.Center
+                        d.invLabel.TextYAlignment = Enum.TextYAlignment.Bottom
+                        d.invLabel.Text = ""
+                        d.invLabel.Visible = false
+                        d.invLabel.ZIndex = 2
+                        d.invLabel.Parent = screen
+                    end
+                    local items = {}
+                    local bp = player:FindFirstChild("Backpack")
+                    if bp then
+                        for _, tool in ipairs(bp:GetChildren()) do
+                            if tool:IsA("Tool") then
+                                table.insert(items, tool.Name)
+                            end
+                        end
+                    end
+                    for _, tool in ipairs(char:GetChildren()) do
+                        if tool:IsA("Tool") then
+                            table.insert(items, tool.Name)
+                        end
+                    end
+                    local headPosInv = head.Position + Vector3.new(0, 2, 0)
+                    local screenPosInv, onScreenInv = Camera:WorldToViewportPoint(headPosInv)
+                    if onScreenInv and #items > 0 then
+                        d.invLabel.Text = '🎒 ' .. table.concat(items, " · ")
+                        d.invLabel.Position = UDim2.new(0, screenPosInv.X, 0, screenPosInv.Y - 20)
+                        d.invLabel.Visible = true
+                    else
+                        d.invLabel.Visible = false
+                    end
+                else
+                    if d.invLabel then d.invLabel.Visible = false end
                 end
             end
         end
