@@ -1,4 +1,4 @@
--- Main Scripts | ESP + Aimbot v29 — Hotbar + Platform
+-- Main Scripts | ESP + Aimbot v30 — Fixed toggles + Platform hotbar
 -- Executor required. Client-side only.
 
 local Players = game:GetService("Players")
@@ -32,6 +32,9 @@ local config = {
     rainbowFov = false, targetHead = true, fov = 90,
 }
 
+local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+local maxHotbarSlots = isMobile and 3 or 10
+
 local aimKey = nil
 local aimMouse = nil
 local aimHeld = false
@@ -40,10 +43,6 @@ local closed = false
 local notifiedOnce = false
 local FAR_DISTANCE = 5000
 local lockedTarget = nil
-
--- Определение платформы
-local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
-local maxHotbarSlots = isMobile and 3 or 10
 
 local parent = (gethui and gethui()) or CoreGui
 local old = parent:FindFirstChild("MainScriptsUI")
@@ -334,6 +333,7 @@ local function makeToggle(parent, labelText, key, order)
     row.LayoutOrder = order
     row.Parent = parent
     Instance.new("UICorner", row).CornerRadius = UDim.new(0, 10)
+    
     local lbl = Instance.new("TextLabel")
     lbl.Size = UDim2.new(1, -60, 1, 0)
     lbl.Position = UDim2.new(0, 14, 0, 0)
@@ -345,25 +345,27 @@ local function makeToggle(parent, labelText, key, order)
     lbl.TextXAlignment = Enum.TextXAlignment.Left
     lbl.ZIndex = 2
     lbl.Parent = row
+    
     local knobBg = Instance.new("Frame")
     knobBg.Size = UDim2.new(0, 42, 0, 22)
     knobBg.Position = UDim2.new(1, -54, 0.5, -11)
-    knobBg.AnchorPoint = Vector2.new(0, 0.5)
     knobBg.BackgroundColor3 = GLASS.accentOff
     knobBg.BorderSizePixel = 0
     knobBg.ZIndex = 2
     knobBg.Parent = row
     Instance.new("UICorner", knobBg).CornerRadius = UDim.new(1, 0)
+    
     local knob = Instance.new("Frame")
     knob.Size = UDim2.new(0, 18, 0, 18)
     knob.Position = UDim2.new(0, 2, 0.5, -9)
-    knob.AnchorPoint = Vector2.new(0, 0.5)
     knob.BackgroundColor3 = Color3.fromRGB(240, 240, 250)
     knob.BorderSizePixel = 0
     knob.ZIndex = 3
     knob.Parent = knobBg
     Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
+    
     toggleButtons[key] = {btn = knobBg, knob = knob}
+    
     row.MouseButton1Click:Connect(function()
         if key == "highlight" then
             if not config.highlight then
@@ -536,10 +538,9 @@ local function isFullMainEspState()
     return config.highlight == true and config.hitbox == false
         and config.hp == true and config.toolname == true
         and config.distance == true and config.name == true
-        and config.teamColor == false and config.inventory == false
 end
 
-onToggleChanged = function(key, state)
+onToggleChanged = function()
     if suppressToggleChange then return end
     local stillFull = isFullMainEspState()
     if mainEspActive and not stillFull then
@@ -560,8 +561,6 @@ local function applyMainEsp(state)
         config.toolname = true
         config.distance = true
         config.name = true
-        config.teamColor = false
-        config.inventory = false
     else
         config.highlight = false
         config.hitbox = false
@@ -569,8 +568,6 @@ local function applyMainEsp(state)
         config.toolname = false
         config.distance = false
         config.name = false
-        config.teamColor = false
-        config.inventory = false
     end
     setToggleVisual("highlight", config.highlight, true)
     setToggleVisual("hitbox", config.hitbox, true)
@@ -578,8 +575,6 @@ local function applyMainEsp(state)
     setToggleVisual("toolname", config.toolname, true)
     setToggleVisual("distance", config.distance, true)
     setToggleVisual("name", config.name, true)
-    setToggleVisual("teamColor", config.teamColor, true)
-    setToggleVisual("inventory", config.inventory, true)
     suppressToggleChange = false
 end
 
