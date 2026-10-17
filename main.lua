@@ -669,6 +669,80 @@ makeSlider(lpBody, "Speed value", 2, 8, 300, 16, function(v)
     end
 end)
 
+-- ============ FLY ============
+lpConfig.flyEnabled = false
+lpConfig.flySpeed = 50
+
+local flyBV = nil
+local flyBG = nil
+local flyConn = nil
+
+local function stopFly()
+    if flyBV then flyBV:Destroy() flyBV = nil end
+    if flyBG then flyBG:Destroy() flyBG = nil end
+    if flyConn then flyConn:Disconnect() flyConn = nil end
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if hum then hum.PlatformStand = false end
+end
+
+local function startFly()
+    stopFly()
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hrp or not hum then return end
+
+    hum.PlatformStand = true
+
+    flyBV = Instance.new("BodyVelocity")
+    flyBV.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+    flyBV.Velocity = Vector3.zero
+    flyBV.Parent = hrp
+
+    flyBG = Instance.new("BodyGyro")
+    flyBG.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
+    flyBG.P = 9000
+    flyBG.D = 500
+    flyBG.CFrame = hrp.CFrame
+    flyBG.Parent = hrp
+
+    flyConn = RunService.RenderStepped:Connect(function()
+        if not flyBV or not flyBV.Parent then return end
+        local cam = workspace.CurrentCamera
+        local move = Vector3.zero
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then move = move + cam.CFrame.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then move = move - cam.CFrame.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then move = move - cam.CFrame.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then move = move + cam.CFrame.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then move = move + Vector3.new(0, 1, 0) end
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then move = move - Vector3.new(0, 1, 0) end
+        if move.Magnitude > 0 then
+            flyBV.Velocity = move.Unit * lpConfig.flySpeed
+        else
+            flyBV.Velocity = Vector3.zero
+        end
+        flyBG.CFrame = cam.CFrame
+    end)
+end
+
+makeLpToggle(lpBody, "Fly", "flyEnabled", 3, function(on)
+    if on then startFly() else stopFly() end
+end)
+
+makeSlider(lpBody, "Fly speed", 4, 10, 500, 50, function(v)
+    lpConfig.flySpeed = v
+end)
+
+LocalPlayer.CharacterAdded:Connect(function()
+    if lpConfig.flyEnabled then
+        task.wait(1)
+        startFly()
+    end
+end)
+
+
 
 local mainEspRow = Instance.new("TextButton")
 mainEspRow.Size = UDim2.new(1, 0, 0, 34)
