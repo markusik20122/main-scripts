@@ -1,4 +1,4 @@
--- Main Scripts | ESP + Aimbot v28 — Inventory
+-- Main Scripts | ESP + Aimbot v29 — Hotbar + Platform
 -- Executor required. Client-side only.
 
 local Players = game:GetService("Players")
@@ -27,10 +27,9 @@ local GLASS = {
 
 local config = {
     highlight = false, hitbox = false, hp = false, toolname = false,
-    distance = false, name = false, inventory = false,
+    distance = false, name = false, inventory = false, teamColor = false,
     aimbot = false, wallcheck = false, teamcheck = false, fovCircle = false,
-    rainbowFov = false, teamColor = false,
-    targetHead = true, fov = 90,
+    rainbowFov = false, targetHead = true, fov = 90,
 }
 
 local aimKey = nil
@@ -41,6 +40,10 @@ local closed = false
 local notifiedOnce = false
 local FAR_DISTANCE = 5000
 local lockedTarget = nil
+
+-- Определение платформы
+local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+local maxHotbarSlots = isMobile and 3 or 10
 
 local parent = (gethui and gethui()) or CoreGui
 local old = parent:FindFirstChild("MainScriptsUI")
@@ -310,7 +313,7 @@ local function setToggleVisual(key, state, animate)
     local t = toggleButtons[key]
     if not t then return end
     local targetBg = state and GLASS.accent or GLASS.accentOff
-    local targetPos = state and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
+    local targetPos = state and UDim2.new(1, -20, 0.5, -11) or UDim2.new(0, 2, 0.5, -11)
     if animate then
         TweenService:Create(t.btn, TweenInfo.new(0.15), {BackgroundColor3 = targetBg}):Play()
         TweenService:Create(t.knob, TweenInfo.new(0.15), {Position = targetPos}):Play()
@@ -345,6 +348,7 @@ local function makeToggle(parent, labelText, key, order)
     local knobBg = Instance.new("Frame")
     knobBg.Size = UDim2.new(0, 42, 0, 22)
     knobBg.Position = UDim2.new(1, -54, 0.5, -11)
+    knobBg.AnchorPoint = Vector2.new(0, 0.5)
     knobBg.BackgroundColor3 = GLASS.accentOff
     knobBg.BorderSizePixel = 0
     knobBg.ZIndex = 2
@@ -353,6 +357,7 @@ local function makeToggle(parent, labelText, key, order)
     local knob = Instance.new("Frame")
     knob.Size = UDim2.new(0, 18, 0, 18)
     knob.Position = UDim2.new(0, 2, 0.5, -9)
+    knob.AnchorPoint = Vector2.new(0, 0.5)
     knob.BackgroundColor3 = Color3.fromRGB(240, 240, 250)
     knob.BorderSizePixel = 0
     knob.ZIndex = 3
@@ -531,9 +536,10 @@ local function isFullMainEspState()
     return config.highlight == true and config.hitbox == false
         and config.hp == true and config.toolname == true
         and config.distance == true and config.name == true
+        and config.teamColor == false and config.inventory == false
 end
 
-onToggleChanged = function()
+onToggleChanged = function(key, state)
     if suppressToggleChange then return end
     local stillFull = isFullMainEspState()
     if mainEspActive and not stillFull then
@@ -554,6 +560,8 @@ local function applyMainEsp(state)
         config.toolname = true
         config.distance = true
         config.name = true
+        config.teamColor = false
+        config.inventory = false
     else
         config.highlight = false
         config.hitbox = false
@@ -561,6 +569,8 @@ local function applyMainEsp(state)
         config.toolname = false
         config.distance = false
         config.name = false
+        config.teamColor = false
+        config.inventory = false
     end
     setToggleVisual("highlight", config.highlight, true)
     setToggleVisual("hitbox", config.hitbox, true)
@@ -568,6 +578,8 @@ local function applyMainEsp(state)
     setToggleVisual("toolname", config.toolname, true)
     setToggleVisual("distance", config.distance, true)
     setToggleVisual("name", config.name, true)
+    setToggleVisual("teamColor", config.teamColor, true)
+    setToggleVisual("inventory", config.inventory, true)
     suppressToggleChange = false
 end
 
@@ -1356,17 +1368,16 @@ RunService.RenderStepped:Connect(function()
                 else
                     if d.textLabel then d.textLabel.Visible = false end
                 end
-
                 if config.inventory and char and head then
                     if not d.invLabel then
                         d.invLabel = Instance.new("TextLabel")
                         d.invLabel.Name = "MS_InvText_" .. player.Name
                         d.invLabel.BackgroundTransparency = 1
                         d.invLabel.AnchorPoint = Vector2.new(0.5, 1)
-                        d.invLabel.Size = UDim2.new(0, 400, 0, 16)
-                        d.invLabel.Font = Enum.Font.GothamMedium
-                        d.invLabel.TextSize = 11
-                        d.invLabel.TextColor3 = Color3.fromRGB(255, 240, 150)
+                        d.invLabel.Size = UDim2.new(0, 400, 0, 18)
+                        d.invLabel.Font = Enum.Font.GothamBold
+                        d.invLabel.TextSize = 13
+                        d.invLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
                         d.invLabel.RichText = true
                         d.invLabel.TextStrokeTransparency = 0.5
                         d.invLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
@@ -1380,9 +1391,13 @@ RunService.RenderStepped:Connect(function()
                     local items = {}
                     local bp = player:FindFirstChild("Backpack")
                     if bp then
+                        local idx = 0
                         for _, tool in ipairs(bp:GetChildren()) do
                             if tool:IsA("Tool") then
-                                table.insert(items, tool.Name)
+                                idx = idx + 1
+                                if idx <= maxHotbarSlots then
+                                    table.insert(items, tool.Name)
+                                end
                             end
                         end
                     end
@@ -1394,7 +1409,12 @@ RunService.RenderStepped:Connect(function()
                     local headPosInv = head.Position + Vector3.new(0, 2, 0)
                     local screenPosInv, onScreenInv = Camera:WorldToViewportPoint(headPosInv)
                     if onScreenInv and #items > 0 then
-                        d.invLabel.Text = '🎒 ' .. table.concat(items, " · ")
+                        local parts = {}
+                        for _, name in ipairs(items) do
+                            table.insert(parts, string.format('<font color="%s">%s</font>', COL_TOOL, name))
+                        end
+                        local sep = string.format(' <font color="%s">|</font> ', COL_SEP)
+                        d.invLabel.Text = '🎒 ' .. table.concat(parts, sep)
                         d.invLabel.Position = UDim2.new(0, screenPosInv.X, 0, screenPosInv.Y - 20)
                         d.invLabel.Visible = true
                     else
