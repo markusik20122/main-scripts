@@ -1,4 +1,4 @@
--- Main Scripts | ESP + Aimbot v32 — Fixed toggles + Devices
+-- Main Scripts | ESP + Aimbot v34 — Inventory (10 max, no device)
 -- Executor required. Client-side only.
 
 local Players = game:GetService("Players")
@@ -25,30 +25,9 @@ local GLASS = {
     textDim = Color3.fromRGB(200, 205, 220),
 }
 
--- ========== ОПРЕДЕЛЕНИЕ УСТРОЙСТВА ==========
-local deviceName = "PC"
-local maxHotbarSlots = 10
-
-if UserInputService.VREnabled then
-    deviceName = "VR"
-elseif game:GetService("GuiService"):IsTenFootInterface() then
-    deviceName = "Console"
-elseif UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled and not UserInputService.MouseEnabled then
-    local screenSize = workspace.CurrentCamera.ViewportSize
-    if math.max(screenSize.X, screenSize.Y) >= 1024 then
-        deviceName = "Tablet"
-        maxHotbarSlots = 6
-    else
-        deviceName = "Phone"
-        maxHotbarSlots = 3
-    end
-end
-
--- ========== CONFIG ==========
 local config = {
     highlight = false, hitbox = false, hp = false, toolname = false,
     distance = false, name = false, inventory = false, teamColor = false,
-    device = false,
     aimbot = false, wallcheck = false, teamcheck = false, fovCircle = false,
     rainbowFov = false, targetHead = true, fov = 90,
 }
@@ -76,8 +55,8 @@ screen.Parent = parent
 local main = Instance.new("Frame")
 main.Name = "Main"
 main.AnchorPoint = Vector2.new(0, 0)
-main.Size = UDim2.new(0, 280, 0, 500)
-main.Position = UDim2.new(0.5, -140, 0.75, -250)
+main.Size = UDim2.new(0, 280, 0, 460)
+main.Position = UDim2.new(0.5, -140, 0.75, -230)
 main.BackgroundColor3 = GLASS.bg
 main.BackgroundTransparency = GLASS.bgTransparency
 main.BorderSizePixel = 0
@@ -330,8 +309,7 @@ local function setToggleVisual(key, state, animate)
     local t = toggleButtons[key]
     if not t then return end
     local targetBg = state and GLASS.accent or GLASS.accentOff
-    -- ИСПРАВЛЕНО: -9 вместо -11, чтобы кружочек не улетал вверх
-    local targetPos = state and UDim2.new(1, -20, 0.5, -9) or UDim2.new(0, 2, 0.5, -9)
+    local targetPos = state and UDim2.new(1, -20, 0.5, 0) or UDim2.new(0, 2, 0.5, 0)
     if animate then
         TweenService:Create(t.btn, TweenInfo.new(0.15), {BackgroundColor3 = targetBg}):Play()
         TweenService:Create(t.knob, TweenInfo.new(0.15), {Position = targetPos}):Play()
@@ -367,7 +345,8 @@ local function makeToggle(parent, labelText, key, order)
     
     local knobBg = Instance.new("Frame")
     knobBg.Size = UDim2.new(0, 42, 0, 22)
-    knobBg.Position = UDim2.new(1, -54, 0.5, -11)
+    knobBg.AnchorPoint = Vector2.new(1, 0.5)
+    knobBg.Position = UDim2.new(1, -13, 0.5, 0)
     knobBg.BackgroundColor3 = GLASS.accentOff
     knobBg.BorderSizePixel = 0
     knobBg.ZIndex = 2
@@ -376,8 +355,8 @@ local function makeToggle(parent, labelText, key, order)
     
     local knob = Instance.new("Frame")
     knob.Size = UDim2.new(0, 18, 0, 18)
-    -- ИСПРАВЛЕНО: -9 для центрирования
-    knob.Position = UDim2.new(0, 2, 0.5, -9)
+    knob.AnchorPoint = Vector2.new(0, 0.5)
+    knob.Position = UDim2.new(0, 2, 0.5, 0)
     knob.BackgroundColor3 = Color3.fromRGB(240, 240, 250)
     knob.BorderSizePixel = 0
     knob.ZIndex = 3
@@ -504,7 +483,6 @@ end
 local espBody = makeFold(scroll, "ESP", 1, false)
 local aimBody = makeFold(scroll, "Aimbot", 3, false)
 
--- ========== ESP MAIN ROW ==========
 local mainEspRow = Instance.new("TextButton")
 mainEspRow.Size = UDim2.new(1, 0, 0, 34)
 mainEspRow.BackgroundColor3 = Color3.fromRGB(60, 30, 36)
@@ -535,7 +513,6 @@ mainEspIndicator.ZIndex = 2
 mainEspIndicator.Parent = mainEspRow
 Instance.new("UICorner", mainEspIndicator).CornerRadius = UDim.new(1, 0)
 
--- ========== НОВЫЙ ПОРЯДОК ТУМБЛЕРОВ ==========
 makeToggle(espBody, "Highlight (red)", "highlight", 2)
 makeToggle(espBody, "Hitbox (white)", "hitbox", 3)
 makeToggle(espBody, "Name", "name", 4)
@@ -544,7 +521,6 @@ makeToggle(espBody, "Distance", "distance", 6)
 makeToggle(espBody, "Tool Name", "toolname", 7)
 makeToggle(espBody, "Team Color", "teamColor", 8)
 makeToggle(espBody, "Inventory", "inventory", 9)
-makeToggle(espBody, "Device", "device", 10)
 
 local mainEspActive = false
 
@@ -561,7 +537,7 @@ local function isFullMainEspState()
     return config.highlight == true and config.hitbox == false
         and config.name == true and config.hp == true and config.distance == true
         and config.toolname == false and config.teamColor == false
-        and config.inventory == false and config.device == false
+        and config.inventory == false
 end
 
 onToggleChanged = function()
@@ -587,7 +563,6 @@ local function applyMainEsp(state)
         config.toolname = false
         config.teamColor = false
         config.inventory = false
-        config.device = false
     else
         config.highlight = false
         config.hitbox = false
@@ -597,7 +572,6 @@ local function applyMainEsp(state)
         config.toolname = false
         config.teamColor = false
         config.inventory = false
-        config.device = false
     end
     setToggleVisual("highlight", config.highlight, true)
     setToggleVisual("hitbox", config.hitbox, true)
@@ -607,7 +581,6 @@ local function applyMainEsp(state)
     setToggleVisual("toolname", config.toolname, true)
     setToggleVisual("teamColor", config.teamColor, true)
     setToggleVisual("inventory", config.inventory, true)
-    setToggleVisual("device", config.device, true)
     suppressToggleChange = false
 end
 
@@ -617,7 +590,6 @@ mainEspRow.MouseButton1Click:Connect(function()
     applyMainEsp(mainEspActive)
 end)
 
--- ========== AIMBOT ==========
 makeToggle(aimBody, "Aimbot", "aimbot", 1)
 makeToggle(aimBody, "Wallcheck", "wallcheck", 2)
 makeToggle(aimBody, "Teamcheck", "teamcheck", 3)
@@ -912,14 +884,12 @@ RunService.RenderStepped:Connect(function(dt)
     end
 end)
 
--- ========== ESP ENGINE ==========
 local espData = {}
 local COL_NAME = "rgb(255, 255, 255)"
 local COL_HP   = "rgb(120, 255, 120)"
 local COL_TOOL = "rgb(255, 220, 120)"
 local COL_DIST = "rgb(180, 180, 255)"
 local COL_SEP  = "rgb(120, 120, 120)"
-local COL_DEV  = "rgb(200, 150, 255)"
 
 local BODY_PARTS = {
     "Head", "UpperTorso", "LowerTorso",
@@ -1069,7 +1039,6 @@ table.insert(conns, Players.PlayerAdded:Connect(setupPlayer))
 table.insert(conns, Players.PlayerRemoving:Connect(function(p) clearESP(p) end))
 for _, p in ipairs(Players:GetPlayers()) do setupPlayer(p) end
 
--- ========== AIMBOT LOGIC ==========
 UserInputService.InputBegan:Connect(function(input, gpe)
     if gpe then return end
     if not config.aimbot then return end
@@ -1189,13 +1158,12 @@ UserInputService.InputEnded:Connect(function(input)
     end
 end)
 
--- ========== VISIBILITY ==========
-local FULL_W, FULL_H = 280, 500
+local FULL_W, FULL_H = 280, 460
 local animState = nil
 local animT = 0
 local animFromW, animFromH = 0, 0
 local animCenterX, animCenterY = 0, 0
-local lastSizeW, lastSizeH = 280, 500
+local lastSizeW, lastSizeH = 280, 460
 
 local function startHideAnim()
     if animState then return end
@@ -1321,7 +1289,6 @@ UserInputService.InputBegan:Connect(function(input, gpe)
     if input.KeyCode == Enum.KeyCode.G then toggleVisibility() end
 end)
 
--- ========== MAIN LOOP ==========
 RunService.RenderStepped:Connect(function()
     if closed then return end
     local myChar = LocalPlayer.Character
@@ -1355,7 +1322,7 @@ RunService.RenderStepped:Connect(function()
                     clearHitbox(player)
                 end
                 
-                local needText = config.hp or config.toolname or config.distance or config.name or config.device
+                local needText = config.hp or config.toolname or config.distance or config.name
                 if needText and head then
                     local lbl = ensureTextLabel(player)
                     local headPos = head.Position + Vector3.new(0, 2, 0)
@@ -1389,9 +1356,6 @@ RunService.RenderStepped:Connect(function()
                             if config.distance and myPos and root then
                                 local dist = (myPos - root.Position).Magnitude
                                 table.insert(parts, string.format('<font color="%s">%d studs</font>', COL_DIST, math.floor(dist)))
-                            end
-                            if config.device then
-                                table.insert(parts, string.format('<font color="%s">%s</font>', COL_DEV, deviceName))
                             end
                             
                             if #parts > 0 then
@@ -1437,7 +1401,7 @@ RunService.RenderStepped:Connect(function()
                         for _, tool in ipairs(bp:GetChildren()) do
                             if tool:IsA("Tool") then
                                 idx = idx + 1
-                                if idx <= maxHotbarSlots then
+                                if idx <= 10 then
                                     table.insert(items, tool.Name)
                                 end
                             end
