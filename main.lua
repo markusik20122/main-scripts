@@ -669,15 +669,19 @@ makeSlider(lpBody, "Speed value", 2, 8, 300, 16, function(v)
     end
 end)
 
--- ============ FLY ============
-lpConfig.flyEnabled = false
-lpConfig.flySpeed = 50
 
+-- ============ FLY (IY-style) ============
+lpConfig.flyEnabled = false
+lpConfig.flySpeed = 1
+
+local FLYING = false
 local flyBV = nil
 local flyBG = nil
 local flyConn = nil
+local flyControl = {F = 0, B = 0, L = 0, R = 0}
 
 local function stopFly()
+    FLYING = false
     if flyBV then flyBV:Destroy() flyBV = nil end
     if flyBG then flyBG:Destroy() flyBG = nil end
     if flyConn then flyConn:Disconnect() flyConn = nil end
@@ -694,53 +698,63 @@ local function startFly()
     local hum = char:FindFirstChildOfClass("Humanoid")
     if not hrp or not hum then return end
 
-    hum.PlatformStand = true
-
-    flyBV = Instance.new("BodyVelocity")
-    flyBV.MaxForce = Vector3.new(1e5, 1e5, 1e5)
-    flyBV.Velocity = Vector3.zero
-    flyBV.Parent = hrp
+    FLYING = true
 
     flyBG = Instance.new("BodyGyro")
-    flyBG.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
-    flyBG.P = 9000
-    flyBG.D = 500
+    flyBG.P = 9e4
+    flyBG.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
     flyBG.CFrame = hrp.CFrame
     flyBG.Parent = hrp
 
+    flyBV = Instance.new("BodyVelocity")
+    flyBV.Velocity = Vector3.new(0, 0.1, 0)
+    flyBV.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+    flyBV.Parent = hrp
+
     flyConn = RunService.RenderStepped:Connect(function()
-        if not flyBV or not flyBV.Parent then return end
+        if not FLYING then return end
         local cam = workspace.CurrentCamera
-        local move = Vector3.zero
-        if UserInputService:IsKeyDown(Enum.KeyCode.W) then move = move + cam.CFrame.LookVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.S) then move = move - cam.CFrame.LookVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.A) then move = move - cam.CFrame.RightVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.D) then move = move + cam.CFrame.RightVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then move = move + Vector3.new(0, 1, 0) end
-        if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then move = move - Vector3.new(0, 1, 0) end
-        if move.Magnitude > 0 then
-            flyBV.Velocity = move.Unit * lpConfig.flySpeed
+        hum.PlatformStand = true
+
+        local speed = 0
+        if flyControl.L + flyControl.R ~= 0 or flyControl.F + flyControl.B ~= 0 then
+            speed = lpConfig.flySpeed * 50
+        end
+
+        if flyControl.L + flyControl.R ~= 0 or flyControl.F + flyControl.B ~= 0 then
+            flyBV.Velocity = ((cam.CFrame.LookVector * (flyControl.F + flyControl.B)) + ((cam.CFrame * CFrame.new(flyControl.L + flyControl.R, (flyControl.F + flyControl.B) * 0.2, 0).p) - cam.CFrame.p)) * speed
         else
-            flyBV.Velocity = Vector3.zero
+            flyBV.Velocity = Vector3.new(0, 0.1, 0)
         end
         flyBG.CFrame = cam.CFrame
     end)
 end
 
-makeLpToggle(lpBody, "Fly", "flyEnabled", 3, function(on)
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if not FLYING then return end
+    if input.KeyCode == Enum.KeyCode.W then flyControl.F = 1 end
+    if input.KeyCode == Enum.KeyCode.S then flyControl.B = -1 end
+    if input.KeyCode == Enum.KeyCode.A then flyControl.L = -1 end
+    if input.KeyCode == Enum.KeyCode.D then flyControl.R = 1 end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if not FLYING then return end
+    if input.KeyCode == Enum.KeyCode.W then flyControl.F = 0 end
+    if input.KeyCode == Enum.KeyCode.S then flyControl.B = 0 end
+    if input.KeyCode == Enum.KeyCode.A then flyControl.L = 0 end
+    if input.KeyCode == Enum.KeyCode.D then flyControl.R = 0 end
+end)
+
+makeLpToggle(lpBody, "Fly (IY)", "flyEnabled", 3, function(on)
     if on then startFly() else stopFly() end
 end)
 
-makeSlider(lpBody, "Fly speed", 4, 10, 500, 50, function(v)
+makeSlider(lpBody, "Fly speed (IY)", 4, 0.1, 10, 1, function(v)
     lpConfig.flySpeed = v
 end)
 
-LocalPlayer.CharacterAdded:Connect(function()
-    if lpConfig.flyEnabled then
-        task.wait(1)
-        startFly()
-    end
-end)
 
 
 
